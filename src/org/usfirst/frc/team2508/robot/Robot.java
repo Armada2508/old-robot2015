@@ -4,13 +4,12 @@ package org.usfirst.frc.team2508.robot;
 
 import java.util.Date;
 
+import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.Compressor;
-import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.Relay;
 import edu.wpi.first.wpilibj.Relay.Value;
 import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.RobotDrive.MotorType;
-import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.SampleRobot;
 import edu.wpi.first.wpilibj.Solenoid;
 import edu.wpi.first.wpilibj.Talon;
@@ -29,32 +28,24 @@ public class Robot extends SampleRobot {
     Solenoid pneumatic1 = new Solenoid(1);
     Relay relayLight = new Relay(0);
     Compressor compressor = new Compressor(1);
-    DigitalInput input0 = new DigitalInput(0);
-    DigitalInput input1 = new DigitalInput(1);
+    CameraServer camera = CameraServer.getInstance();
    
     // System
     Date lastSolenoidEnable = new Date();
-    
-    // Camera
-    CameraServer camera;
     
     // Variables
     double speedFactor = 1.0;
     double rotationSpeed = 0.3;   
 
     public Robot() {
-    	// Camera
-        camera = CameraServer.getInstance();
+    	// Setup camera
         camera.setQuality(50);
-        //the camera name (ex "cam0") can be found through the roborio web interface
         camera.startAutomaticCapture("cam1");
         
-        chassis.setExpiration(0.1);
-
-        // chassis.setInvertedMotor(MotorType.kFrontLeft, true);
+        // Setup chassis
         chassis.setInvertedMotor(MotorType.kFrontRight, true);
-        // chassis.setInvertedMotor(MotorType.kRearLeft, true);
         chassis.setInvertedMotor(MotorType.kRearRight, true);
+        chassis.setExpiration(0.1);
     }
     
     public void autonomous() {
@@ -67,40 +58,6 @@ public class Robot extends SampleRobot {
         compressor.setClosedLoopControl(false);
         
         while (isOperatorControl() && isEnabled()) {
-
-        	talon1.set(-1 * speedFactor);
-        	talon2.set(speedFactor);
-        	
-        	
-        	//-------------------------------------------------------------
-        	// Digital Input for Balancing
-        	//-------------------------------------------------------------
-        	// Reads input...?
-        	
-        	{
-        		if (!input0.get()) {
-        			// Input 0 is Enabled
-        			
-        			
-        		}
-        		else {
-        			// Input 0 is Disabled
-        			
-        			
-        		}
-        		
-        		if (!input1.get()) {
-        			// Input 1 is Enabled
-        			
-        			
-        		}
-        		else {
-        			// Input 1 is Disabled
-        			
-        			
-        		}
-        	}
-        	
         	//-------------------------------------------------------------
         	// Pneumatic Piston Control Using Solenoid
         	//-------------------------------------------------------------
@@ -195,8 +152,6 @@ public class Robot extends SampleRobot {
         		SmartDashboard.putBoolean("Compressor", compressor.enabled());
 	        	SmartDashboard.putBoolean("Solenoid Status", pneumatic0.get() && !pneumatic1.get());
 	        	SmartDashboard.putBoolean("Relay Light Status", relayLight.get() == Value.kOn);
-        		SmartDashboard.putBoolean("Input 0", !input0.get());
-        		SmartDashboard.putBoolean("Input 1", !input1.get());
         	}
             
             gamePad.updatePrevButtonStates();
