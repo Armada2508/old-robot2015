@@ -4,7 +4,11 @@ package org.usfirst.frc.team2508.robot;
 import java.util.Date;
 
 import com.ni.vision.NIVision;
+import com.ni.vision.NIVision.DrawMode;
+import com.ni.vision.NIVision.IMAQdxCameraControlMode;
 import com.ni.vision.NIVision.Image;
+import com.ni.vision.NIVision.Rect;
+import com.ni.vision.NIVision.ShapeMode;
 
 import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.Compressor;
@@ -35,6 +39,7 @@ public class Robot extends SampleRobot {
     // Camera
     CameraServer camera = CameraServer.getInstance();
     Image image = null;
+    int session = 0;
    
     // System
     Date lastSolenoidEnable = new Date();
@@ -46,12 +51,14 @@ public class Robot extends SampleRobot {
 
     public Robot() {
     	// Setup camera
-        camera.setQuality(50);
+        //camera.setQuality(50);
+        //camera.startAutomaticCapture("cam1");
+        
+        
         image = NIVision.imaqCreateImage(NIVision.ImageType.IMAGE_RGB, 0);
-        int session = NIVision.IMAQdxOpenCamera("cam1", NIVision.IMAQdxCameraControlMode.CameraControlModeController);
-    	NIVision.IMAQdxConfigureGrab(session);
+        session = NIVision.IMAQdxOpenCamera("cam1", IMAQdxCameraControlMode.CameraControlModeListener);
+        NIVision.IMAQdxConfigureGrab(session);
     	NIVision.IMAQdxStartAcquisition(session);
-    	camera.setImage(image);
         
         // Setup chassis
         chassis.setInvertedMotor(MotorType.kFrontRight, true);
@@ -69,6 +76,20 @@ public class Robot extends SampleRobot {
         compressor.setClosedLoopControl(false);
         
         while (isOperatorControl() && isEnabled()) {
+        	//-------------------------------------------------------------
+        	// Image Processing
+        	//-------------------------------------------------------------
+        	{
+        		// Write new data to image variable.
+            	NIVision.IMAQdxGrab(session, image, 1);
+            	
+            	// Draw a sphere (for testing)
+            	// NIVision.imaqDrawShapeOnImage(image, image, new Rect(10,10,100,100), DrawMode.PAINT_VALUE, ShapeMode.SHAPE_OVAL, 5.0f);
+            	
+            	// Send image to SmartDashboard
+                camera.setImage(image);
+        	}
+            
         	//-------------------------------------------------------------
         	// Encoder
         	//-------------------------------------------------------------
