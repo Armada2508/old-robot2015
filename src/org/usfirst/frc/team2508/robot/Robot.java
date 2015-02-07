@@ -1,14 +1,17 @@
 
 package org.usfirst.frc.team2508.robot;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import com.ni.vision.NIVision;
-import com.ni.vision.NIVision.DrawMode;
+import com.ni.vision.NIVision.ColorMode;
 import com.ni.vision.NIVision.IMAQdxCameraControlMode;
 import com.ni.vision.NIVision.Image;
-import com.ni.vision.NIVision.Rect;
-import com.ni.vision.NIVision.ShapeMode;
+import com.ni.vision.NIVision.ImageType;
+import com.ni.vision.NIVision.MeasurementType;
+import com.ni.vision.NIVision.Range;
 
 import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.Compressor;
@@ -26,7 +29,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 public class Robot extends SampleRobot {
 	
 	// Robot
-	Talon talon = new Talon(4);
+	Talon talon4 = new Talon(4);
+	Talon talon5 = new Talon(5);
 	
     RobotDrive chassis = new RobotDrive(0, 1, 2, 3);
     LogitechGamepad gamepad = new LogitechGamepad();
@@ -45,6 +49,7 @@ public class Robot extends SampleRobot {
     Date lastSolenoidEnable = new Date();
     
     // Variables
+    boolean processImage = false;
     double speedFactor = 1.0; // multiplier for directional speed
     double rotationSpeed = 0.3;  // multiplier for rotation speed
 	double wheelCircumference = 5.0; // circumference in meters of encoded wheels
@@ -76,15 +81,48 @@ public class Robot extends SampleRobot {
         compressor.setClosedLoopControl(false);
         
         while (isOperatorControl() && isEnabled()) {
+        	
+        	talon4.set(gamepad.getLeftStickY());
+        	
+        	
         	//-------------------------------------------------------------
         	// Image Processing
         	//-------------------------------------------------------------
-        	{
+        	if (true) {
         		// Write new data to image variable.
             	NIVision.IMAQdxGrab(session, image, 1);
             	
             	// Draw a sphere (for testing)
             	// NIVision.imaqDrawShapeOnImage(image, image, new Rect(10,10,100,100), DrawMode.PAINT_VALUE, ShapeMode.SHAPE_OVAL, 5.0f);
+            	
+            	Range red = new Range(175, 250);
+            	Range green = new Range(245, 255);
+            	Range blue = new Range(235, 255);
+            	
+            	Image binary = NIVision.imaqCreateImage(ImageType.IMAGE_U8, 100);
+            	
+            	NIVision.imaqColorThreshold(binary, image, 255, ColorMode.RGB, red, green, blue);
+            	
+            	List<Target> targets = new ArrayList<Target>();
+            	
+            	int particles = NIVision.imaqCountParticles(binary, 0);
+            	
+            	for (int i = 0; i < particles; i++) {
+            		double x = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_BOUNDING_RECT_LEFT);
+            		double y = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_BOUNDING_RECT_TOP);
+            		double area = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_AREA);
+            		double width = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_BOUNDING_RECT_WIDTH);
+            		double height = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_BOUNDING_RECT_HEIGHT);
+
+            		if (width > 3 && width > 3)
+            			targets.add(new Target(x, y, width, height, area));
+            	}
+            	
+            	for (Target target : targets) {
+            		target.fill(image);
+            	}
+            	
+            	SmartDashboard.putNumber("Targets", targets.size());
             	
             	// Send image to SmartDashboard
                 camera.setImage(image);
@@ -99,12 +137,12 @@ public class Robot extends SampleRobot {
         		int encoderValue = encoder.getRaw();
 
             	if (Math.abs(encoderValue) >= 1940) {
-            		talon.set(0);
+            		talon5.set(0);
             	}
             	
             	if (gamepad.getFirstPressY()) {
             		encoder.reset();
-            		talon.set(1);
+            		talon5.set(1);
             	}
         	}
         	
@@ -128,7 +166,6 @@ public class Robot extends SampleRobot {
         			pneumatic0.set(false);
         			pneumatic1.set(true);
         		}
-        		
         	}
         	
         	//-------------------------------------------------------------
