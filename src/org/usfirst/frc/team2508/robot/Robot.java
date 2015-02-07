@@ -95,8 +95,8 @@ public class Robot extends SampleRobot {
             	// Draw a sphere (for testing)
             	// NIVision.imaqDrawShapeOnImage(image, image, new Rect(10,10,100,100), DrawMode.PAINT_VALUE, ShapeMode.SHAPE_OVAL, 5.0f);
             	
-            	Range red = new Range(175, 250);
-            	Range green = new Range(245, 255);
+            	Range red = new Range(200, 250);
+            	Range green = new Range(248, 255);
             	Range blue = new Range(235, 255);
             	
             	Image binary = NIVision.imaqCreateImage(ImageType.IMAGE_U8, 100);
@@ -114,7 +114,7 @@ public class Robot extends SampleRobot {
             		double width = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_BOUNDING_RECT_WIDTH);
             		double height = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_BOUNDING_RECT_HEIGHT);
 
-            		if (width > 3 && width > 3)
+            		if (height > 3 && width > 50)
             			targets.add(new Target(x, y, width, height, area));
             	}
             	
