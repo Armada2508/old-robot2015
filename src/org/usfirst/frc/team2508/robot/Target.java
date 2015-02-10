@@ -8,11 +8,11 @@ import com.ni.vision.NIVision.ShapeMode;
 
 public class Target {
 
-	private double x;
-	private double y;
-	private double width;
-	private double height;
-	private double area;
+	double x;
+	double y;
+	double width;
+	double height;
+	double area;
 	
 	public Target(double x, double y, double width, double height, double area) {
 		this.x = x;
@@ -23,11 +23,11 @@ public class Target {
 	}
 
 	public void fill(Image image) {
-		Rect rect = new Rect((int) y, (int) x, (int) height, (int) width);
-		// NIVision.imaqDrawShapeOnImage(image, image, rect, DrawMode.PAINT_VALUE, ShapeMode.SHAPE_RECT, 5);
+		Rect area = new Rect((int) y, (int) x, (int) height, (int) width);
+		NIVision.imaqDrawShapeOnImage(image, image, area, DrawMode.PAINT_VALUE, ShapeMode.SHAPE_RECT, 5);
 		
-		rect = new Rect((int) y, (int) x, 5, 5);
-		NIVision.imaqDrawShapeOnImage(image, image, rect, DrawMode.PAINT_VALUE, ShapeMode.SHAPE_OVAL, 5);
+		Rect pointer = new Rect((int) y, (int) x, 5, 5);
+		// NIVision.imaqDrawShapeOnImage(image, image, pointer, DrawMode.PAINT_VALUE, ShapeMode.SHAPE_OVAL, 5);
 	}
 	
 	public boolean isPair(Target target) {

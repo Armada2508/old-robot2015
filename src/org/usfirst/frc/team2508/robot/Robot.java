@@ -101,8 +101,8 @@ public class Robot extends SampleRobot {
             	// Draw a sphere (for testing)
             	// NIVision.imaqDrawShapeOnImage(image, image, new Rect(10,10,100,100), DrawMode.PAINT_VALUE, ShapeMode.SHAPE_OVAL, 5.0f);
             	
-            	Range red = new Range(155, 250);
-            	Range green = new Range(220, 255);
+            	Range red = new Range(120, 250);
+            	Range green = new Range(170, 255);
             	Range blue = new Range(235, 255);
             	
             	Image binary = NIVision.imaqCreateImage(ImageType.IMAGE_U8, 100);
@@ -127,7 +127,6 @@ public class Robot extends SampleRobot {
             	List<Pair> pairs = new ArrayList<Pair>();
             	
             	for (Target target : targets) {
-            		target.fill(image);
             		
             		for (Target test : targets) {
             			if (target == test)
@@ -139,8 +138,15 @@ public class Robot extends SampleRobot {
             	}
 
             	SmartDashboard.putNumber("Targets", targets.size());
-            	SmartDashboard.putString("Pairs!", pairs.toString());
             	SmartDashboard.putNumber("Pairs", pairs.size());
+            	
+            	
+            	for (Pair pair : pairs) {
+            		pair.a.fill(image);
+            		pair.b.fill(image);
+            		SmartDashboard.putNumber("Angle", pair.getAngle());
+            		break;
+            	}
             	
             	// Send image to SmartDashboard
                 camera.setImage(image);
