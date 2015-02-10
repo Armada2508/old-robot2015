@@ -30,7 +30,6 @@ public class Robot extends SampleRobot {
 	
 	// Robot
 	Talon talon4 = new Talon(4);
-	Talon talon5 = new Talon(5);
 	
     RobotDrive chassis = new RobotDrive(0, 1, 2, 3);
     LogitechGamepad gamepad = new LogitechGamepad();
@@ -49,10 +48,11 @@ public class Robot extends SampleRobot {
     Date lastSolenoidEnable = new Date();
     
     // Variables
-    boolean processImage = false;
+    boolean processImage = true;
     double speedFactor = 1.0; // multiplier for directional speed
     double rotationSpeed = 0.3;  // multiplier for rotation speed
 	double wheelCircumference = 5.0; // circumference in meters of encoded wheels
+	int encoderValue = 0;
 
     public Robot() {
     	// Setup camera
@@ -81,22 +81,28 @@ public class Robot extends SampleRobot {
         compressor.setClosedLoopControl(false);
         
         while (isOperatorControl() && isEnabled()) {
-        	
+        	 
         	talon4.set(gamepad.getLeftStickY());
+        	encoderValue = encoder.getRaw();
         	
         	
         	//-------------------------------------------------------------
         	// Image Processing
         	//-------------------------------------------------------------
-        	if (true) {
+        	// Procedure:
+        	// 1) Take the image input from the USB camera.
+        	// 2) Locate areas on the image that are closest to the RGB color of reflective tape.
+        	// 3) 
+        	//
+        	if (processImage) {
         		// Write new data to image variable.
             	NIVision.IMAQdxGrab(session, image, 1);
             	
             	// Draw a sphere (for testing)
             	// NIVision.imaqDrawShapeOnImage(image, image, new Rect(10,10,100,100), DrawMode.PAINT_VALUE, ShapeMode.SHAPE_OVAL, 5.0f);
             	
-            	Range red = new Range(200, 250);
-            	Range green = new Range(248, 255);
+            	Range red = new Range(155, 250);
+            	Range green = new Range(220, 255);
             	Range blue = new Range(235, 255);
             	
             	Image binary = NIVision.imaqCreateImage(ImageType.IMAGE_U8, 100);
@@ -118,11 +124,23 @@ public class Robot extends SampleRobot {
             			targets.add(new Target(x, y, width, height, area));
             	}
             	
+            	List<Pair> pairs = new ArrayList<Pair>();
+            	
             	for (Target target : targets) {
             		target.fill(image);
+            		
+            		for (Target test : targets) {
+            			if (target == test)
+            				continue;
+            			
+            			if (test.isPair(target) && !pairs.contains(test))
+            				pairs.add(new Pair(target, test));
+            		}
             	}
-            	
+
             	SmartDashboard.putNumber("Targets", targets.size());
+            	SmartDashboard.putString("Pairs!", pairs.toString());
+            	SmartDashboard.putNumber("Pairs", pairs.size());
             	
             	// Send image to SmartDashboard
                 camera.setImage(image);
@@ -134,15 +152,14 @@ public class Robot extends SampleRobot {
         	// Measures the number of rotations of a wheel.
         	// getRaw() of 2000 is approximately one rotation
         	{
-        		int encoderValue = encoder.getRaw();
 
-            	if (Math.abs(encoderValue) >= 1940) {
-            		talon5.set(0);
-            	}
+            	//if (Math.abs(encoderValue) >= 1940) {
+            	//	talon4.set(0);
+            	//}
             	
             	if (gamepad.getFirstPressY()) {
             		encoder.reset();
-            		talon5.set(1);
+            		talon4.set(.3);
             	}
         	}
         	
@@ -152,7 +169,6 @@ public class Robot extends SampleRobot {
         	// Using a 2-way solenoid, in order for pneumatic to extend, pneumatic0 
         	// must be open (set to true) and pneumatic1 must be closed (set to false)
         	// Vice-versa to retract pneumatic piston.
-        	
         	{
     			Date now = new Date();
         		int timeSince = (int) (now.getTime() - lastSolenoidEnable.getTime());
@@ -239,7 +255,7 @@ public class Robot extends SampleRobot {
         		SmartDashboard.putBoolean("Compressor", compressor.enabled());
 	        	SmartDashboard.putBoolean("Solenoid Status", pneumatic0.get() && !pneumatic1.get());
 	        	SmartDashboard.putBoolean("Relay Light Status", relayLight.get() == Value.kOn);
-	        	SmartDashboard.putNumber("Encoder", encoder.getRaw());
+	        	SmartDashboard.putNumber("Encoder", encoderValue);
         	}
             
             gamepad.updatePrevButtonStates();
