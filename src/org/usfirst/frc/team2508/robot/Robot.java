@@ -43,16 +43,19 @@ public class Robot extends SampleRobot {
     CameraServer camera = CameraServer.getInstance();
     Image image = null;
     int session = 0;
+    boolean cameraFilter = false; // false = Raw footage; true = Filter
    
     // System
     Date lastSolenoidEnable = new Date();
     
     // Variables
-    boolean processImage = true;
+    boolean processImage = false;
+    boolean autoRun;
     double speedFactor = 1.0; // multiplier for directional speed
     double rotationSpeed = 0.3;  // multiplier for rotation speed
 	double wheelCircumference = 5.0; // circumference in meters of encoded wheels
 	int encoderValue = 0;
+	int robotState = 0;
 
     public Robot() {
     	// Setup camera
@@ -67,12 +70,41 @@ public class Robot extends SampleRobot {
         
         // Setup chassis
         chassis.setInvertedMotor(MotorType.kFrontRight, true);
-        chassis.setInvertedMotor(MotorType.kRearRight, true);
+        chassis.setInvertedMotor(MotorType.kRearLeft, true);
+        chassis.setInvertedMotor(MotorType.kRearRight, false);
         chassis.setExpiration(0.1);
     }
     
     public void autonomous() {
         chassis.setSafetyEnabled(false);
+        autoRun = true;
+        
+        if (isAutonomous() && isEnabled()) {
+        	while (autoRun) {
+        		if (autoRun) {
+        			switch (robotState) {	// Code will run through difference "states" according to each case
+        			case 0:
+        				chassis.drive(0.4, 0);
+        				
+        				robotState = 10;
+        			case 10:
+        				robotState = 20;
+        			case 20:
+        				robotState = 30;
+        			case 30:
+        				robotState = 40;
+        			case 40:
+        				robotState = 50;
+        				autoRun = false;
+        				break;
+        			}
+        				
+        		}
+        		
+        	}
+        
+        }
+        
     }
     
     public void operatorControl() {
@@ -94,63 +126,78 @@ public class Robot extends SampleRobot {
         	// 2) Locate areas on the image that are closest to the RGB color of reflective tape.
         	// 3) 
         	//
-        	if (processImage) {
-        		// Write new data to image variable.
-            	NIVision.IMAQdxGrab(session, image, 1);
-            	
-            	// Draw a sphere (for testing)
-            	// NIVision.imaqDrawShapeOnImage(image, image, new Rect(10,10,100,100), DrawMode.PAINT_VALUE, ShapeMode.SHAPE_OVAL, 5.0f);
-            	
-            	Range red = new Range(120, 250);
-            	Range green = new Range(170, 255);
-            	Range blue = new Range(235, 255);
-            	
-            	Image binary = NIVision.imaqCreateImage(ImageType.IMAGE_U8, 100);
-            	
-            	NIVision.imaqColorThreshold(binary, image, 255, ColorMode.RGB, red, green, blue);
-            	
-            	List<Target> targets = new ArrayList<Target>();
-            	
-            	int particles = NIVision.imaqCountParticles(binary, 0);
-            	
-            	for (int i = 0; i < particles; i++) {
-            		double x = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_BOUNDING_RECT_LEFT);
-            		double y = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_BOUNDING_RECT_TOP);
-            		double area = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_AREA);
-            		double width = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_BOUNDING_RECT_WIDTH);
-            		double height = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_BOUNDING_RECT_HEIGHT);
+        	{
+			if (cameraFilter) {
+				if (processImage) {
+					// Write new data to image variable.
+					NIVision.IMAQdxGrab(session, image, 1);
 
-            		if (height > 3 && width > 50)
-            			targets.add(new Target(x, y, width, height, area));
-            	}
-            	
-            	List<Pair> pairs = new ArrayList<Pair>();
-            	
-            	for (Target target : targets) {
-            		
-            		for (Target test : targets) {
-            			if (target == test)
-            				continue;
-            			
-            			if (test.isPair(target) && !pairs.contains(test))
-            				pairs.add(new Pair(target, test));
-            		}
-            	}
+					// Draw a sphere (for testing)
+					// NIVision.imaqDrawShapeOnImage(image, image, new
+					// Rect(10,10,100,100), DrawMode.PAINT_VALUE,
+					// ShapeMode.SHAPE_OVAL, 5.0f);
 
-            	SmartDashboard.putNumber("Targets", targets.size());
-            	SmartDashboard.putNumber("Pairs", pairs.size());
-            	
-            	
-            	for (Pair pair : pairs) {
-            		pair.a.fill(image);
-            		pair.b.fill(image);
-            		SmartDashboard.putNumber("Angle", pair.getAngle());
-            		break;
-            	}
-            	
-            	// Send image to SmartDashboard
-                camera.setImage(image);
+					Range red = new Range(120, 250);
+					Range green = new Range(170, 255);
+					Range blue = new Range(235, 255);
+
+					Image binary = NIVision.imaqCreateImage(ImageType.IMAGE_U8,
+							100);
+
+					NIVision.imaqColorThreshold(binary, image, 255,
+							ColorMode.RGB, red, green, blue);
+
+					List<Target> targets = new ArrayList<Target>();
+
+					int particles = NIVision.imaqCountParticles(binary, 0);
+
+					for (int i = 0; i < particles; i++) {
+						double x = NIVision.imaqMeasureParticle(binary, i, 0,
+								MeasurementType.MT_BOUNDING_RECT_LEFT);
+						double y = NIVision.imaqMeasureParticle(binary, i, 0,
+								MeasurementType.MT_BOUNDING_RECT_TOP);
+						double area = NIVision.imaqMeasureParticle(binary, i,
+								0, MeasurementType.MT_AREA);
+						double width = NIVision.imaqMeasureParticle(binary, i,
+								0, MeasurementType.MT_BOUNDING_RECT_WIDTH);
+						double height = NIVision.imaqMeasureParticle(binary, i,
+								0, MeasurementType.MT_BOUNDING_RECT_HEIGHT);
+
+						if (height > 3 && width > 50)
+							targets.add(new Target(x, y, width, height, area));
+					}
+
+					List<Pair> pairs = new ArrayList<Pair>();
+
+					for (Target target : targets) {
+						for (Target test : targets) {
+							if (target == test)
+								continue;
+
+							if (test.isPair(target) && !pairs.contains(test)) {
+								pairs.add(new Pair(target, test));
+								break;
+
+							}
+						}
+					}
+
+					SmartDashboard.putNumber("Targets", targets.size());
+					SmartDashboard.putNumber("Pairs", pairs.size());
+
+					for (Pair pair : pairs) {
+						pair.a.fill(image);
+						pair.b.fill(image);
+						SmartDashboard.putNumber("Angle", pair.getAngle());
+						break;
+					}
+
+					// Send image to SmartDashboard
+					camera.setImage(binary);
+				}
+			}
         	}
+			// End of Image Processing
             
         	//-------------------------------------------------------------
         	// Encoder
@@ -196,10 +243,23 @@ public class Robot extends SampleRobot {
         	{
         		// Pressing 'LT' on gamePad decreases speedFactor by 0.1
         		// Pressing 'RT' on gamePad increases speedFactor by 0.1
-        		if (gamepad.getFirstPressLT())
+        		
+        		/*if (gamepad.getFirstPressLT())
         			speedFactor -= 0.1;
         		if (gamepad.getFirstPressRT())
         			speedFactor += 0.1;
+        		*/
+        		
+        		// Testing for talon4
+        		if (gamepad.getButtonRT())
+        			talon4.set(0.5);
+        		else
+        			talon4.set(0);
+        		
+        		if (gamepad.getButtonLT())
+        			talon4.set(-0.5);
+        		else
+        			talon4.set(0);
         		
         		// Pressing
         		if (gamepad.getFirstPressLeftStickPress())
@@ -218,7 +278,7 @@ public class Robot extends SampleRobot {
         	{
             	// gamePad grabs Y value of thumbstick and multiplies by 
             	// speedFactor to get leftSpeed and rightSpeed
-	        	double xMovement = (gamepad.getLeftStickX() * speedFactor);
+	        	double xMovement = gamepad.getLeftStickX() * speedFactor;
 	        	double yMovement = gamepad.getLeftStickY() * speedFactor;
 	        	double rotation = gamepad.getRightStickX() * rotationSpeed;
 	        	
@@ -271,4 +331,21 @@ public class Robot extends SampleRobot {
     
     public void test() {
     }
+    
+    public void strafe (double factor) {
+    	// Ex: chassis.stafe(0.4);
+        // Mecanum drive at modified speed
+    	// 1st parameter specifies xMovement
+    	chassis.mecanumDrive_Cartesian(factor, 0, 0, 0);
+    }
+    
+    
+    public void rotate (double factor) {
+    	// Ex: chassis.rotate (0.4);
+    	
+    	// Mecanum drive at modified speed
+        // 3rd parameter specifies rate of rotation
+    	chassis.mecanumDrive_Cartesian(0, 0, factor, 0);
+    }
+    
 }
