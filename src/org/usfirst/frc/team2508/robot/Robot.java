@@ -29,8 +29,6 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 public class Robot extends SampleRobot {
 	
 	// Robot
-	Talon talon4 = new Talon(4);
-	
     RobotDrive chassis = new RobotDrive(0, 1, 2, 3);
     LogitechGamepad gamepad = new LogitechGamepad();
     Solenoid pneumatic0 = new Solenoid(0);
@@ -38,18 +36,23 @@ public class Robot extends SampleRobot {
     Relay relayLight = new Relay(0);
     Compressor compressor = new Compressor(1);
     Encoder encoder = new Encoder(0, 1);
+	Talon lift = new Talon(4);
+	Talon leftArm = new Talon(5);
+	Talon rightArm = new Talon(6);
     
     // Camera
     CameraServer camera = CameraServer.getInstance();
     Image image = null;
     int session = 0;
-    boolean cameraFilter = false; // false = Raw footage; true = Filter
    
     // System
+    boolean armsIntake = true;
+    LiftState liftState = LiftState.GROUND;
+    Date clampTime = new Date();
     Date lastSolenoidEnable = new Date();
     
     // Variables
-    boolean processImage = false;
+    boolean cameraFilter = false; // false = Raw footage; true = Filter
     boolean autoRun;
     double speedFactor = 1.0; // multiplier for directional speed
     double rotationSpeed = 0.3;  // multiplier for rotation speed
@@ -58,11 +61,6 @@ public class Robot extends SampleRobot {
 	int robotState = 0;
 
     public Robot() {
-    	// Setup camera
-        //camera.setQuality(50);
-        //camera.startAutomaticCapture("cam1");
-        
-        
         image = NIVision.imaqCreateImage(NIVision.ImageType.IMAGE_RGB, 0);
         session = NIVision.IMAQdxOpenCamera("cam1", IMAQdxCameraControlMode.CameraControlModeListener);
         NIVision.IMAQdxConfigureGrab(session);
@@ -81,25 +79,25 @@ public class Robot extends SampleRobot {
         
         if (isAutonomous() && isEnabled()) {
         	while (autoRun) {
-        		if (autoRun) {
-        			switch (robotState) {	// Code will run through difference "states" according to each case
-        			case 0:
-        				chassis.drive(0.4, 0);
-        				
-        				robotState = 10;
-        			case 10:
-        				robotState = 20;
-        			case 20:
-        				robotState = 30;
-        			case 30:
-        				robotState = 40;
-        			case 40:
-        				robotState = 50;
-        				autoRun = false;
-        				break;
-        			}
-        				
-        		}
+        		if (!autoRun)
+        			break;
+        		
+        		switch (robotState) {	// Code will run through difference "states" according to each case
+    			case 0:
+    				chassis.drive(0.4, 0);
+    				
+    				robotState = 10;
+    			case 10:
+    				robotState = 20;
+    			case 20:
+    				robotState = 30;
+    			case 30:
+    				robotState = 40;
+    			case 40:
+    				robotState = 50;
+    				autoRun = false;
+    				break;
+    			}
         		
         	}
         
@@ -109,120 +107,69 @@ public class Robot extends SampleRobot {
     
     public void operatorControl() {
         chassis.setSafetyEnabled(true);
-        
+        encoder.reset();
         compressor.setClosedLoopControl(false);
         
         while (isOperatorControl() && isEnabled()) {
-        	 
-        	talon4.set(gamepad.getLeftStickY());
-        	encoderValue = encoder.getRaw();
-        	
-        	
         	//-------------------------------------------------------------
-        	// Image Processing
-        	//-------------------------------------------------------------
-        	// Procedure:
-        	// 1) Take the image input from the USB camera.
-        	// 2) Locate areas on the image that are closest to the RGB color of reflective tape.
-        	// 3) 
-        	//
-        	{
-			if (cameraFilter) {
-				if (processImage) {
-					// Write new data to image variable.
-					NIVision.IMAQdxGrab(session, image, 1);
-
-					// Draw a sphere (for testing)
-					// NIVision.imaqDrawShapeOnImage(image, image, new
-					// Rect(10,10,100,100), DrawMode.PAINT_VALUE,
-					// ShapeMode.SHAPE_OVAL, 5.0f);
-
-					Range red = new Range(120, 250);
-					Range green = new Range(170, 255);
-					Range blue = new Range(235, 255);
-
-					Image binary = NIVision.imaqCreateImage(ImageType.IMAGE_U8,
-							100);
-
-					NIVision.imaqColorThreshold(binary, image, 255,
-							ColorMode.RGB, red, green, blue);
-
-					List<Target> targets = new ArrayList<Target>();
-
-					int particles = NIVision.imaqCountParticles(binary, 0);
-
-					for (int i = 0; i < particles; i++) {
-						double x = NIVision.imaqMeasureParticle(binary, i, 0,
-								MeasurementType.MT_BOUNDING_RECT_LEFT);
-						double y = NIVision.imaqMeasureParticle(binary, i, 0,
-								MeasurementType.MT_BOUNDING_RECT_TOP);
-						double area = NIVision.imaqMeasureParticle(binary, i,
-								0, MeasurementType.MT_AREA);
-						double width = NIVision.imaqMeasureParticle(binary, i,
-								0, MeasurementType.MT_BOUNDING_RECT_WIDTH);
-						double height = NIVision.imaqMeasureParticle(binary, i,
-								0, MeasurementType.MT_BOUNDING_RECT_HEIGHT);
-
-						if (height > 3 && width > 50)
-							targets.add(new Target(x, y, width, height, area));
-					}
-
-					List<Pair> pairs = new ArrayList<Pair>();
-
-					for (Target target : targets) {
-						for (Target test : targets) {
-							if (target == test)
-								continue;
-
-							if (test.isPair(target) && !pairs.contains(test)) {
-								pairs.add(new Pair(target, test));
-								break;
-
-							}
-						}
-					}
-
-					SmartDashboard.putNumber("Targets", targets.size());
-					SmartDashboard.putNumber("Pairs", pairs.size());
-
-					for (Pair pair : pairs) {
-						pair.a.fill(image);
-						pair.b.fill(image);
-						SmartDashboard.putNumber("Angle", pair.getAngle());
-						break;
-					}
-
-					// Send image to SmartDashboard
-					camera.setImage(binary);
-				}
-			}
-        	}
-			// End of Image Processing
-            
-        	//-------------------------------------------------------------
-        	// Encoder
+        	// Lift
         	//-------------------------------------------------------------
         	// Measures the number of rotations of a wheel.
         	// getRaw() of 2000 is approximately one rotation
         	{
-
+        		boolean pressed = gamepad.getFirstPressY();
+        		
+        		if (liftState == LiftState.GROUND) {
+        			
+        		}
+        		
+        		if (gamepad.getFirstPressY()) {
+        			
+        		}
             	//if (Math.abs(encoderValue) >= 1940) {
             	//	talon4.set(0);
             	//}
+        		
             	
             	if (gamepad.getFirstPressY()) {
             		encoder.reset();
-            		talon4.set(.3);
+            		lift.set(0.3);
             	}
+        	}
+
+        	//-------------------------------------------------------------
+        	// Arms
+        	//-------------------------------------------------------------
+        	{
+        		double currentSpeed = leftArm.get();
+        		double newSpeed = currentSpeed;
+        		
+        		if (gamepad.getFirstPressX()) {
+        			if (currentSpeed == 0)
+        				newSpeed = 0.5;
+        			else
+        				newSpeed = 0;
+        		}
+        		
+        		if (gamepad.getFirstPressA())
+        			armsIntake = !armsIntake;
+        		
+        		if (!armsIntake)
+        			newSpeed = -newSpeed;
+        		
+        		if (currentSpeed != newSpeed) {
+            		leftArm.set(newSpeed);
+            		rightArm.set(-newSpeed);
+        		}
         	}
         	
         	//-------------------------------------------------------------
         	// Pneumatic Piston Control Using Solenoid
         	//-------------------------------------------------------------
-        	// Using a 2-way solenoid, in order for pneumatic to extend, pneumatic0 
+        	// Using a 2-way solenoid, in order for `atic to extend, pneumatic0 
         	// must be open (set to true) and pneumatic1 must be closed (set to false)
         	// Vice-versa to retract pneumatic piston.
-        	{
+        	if (false) {
     			Date now = new Date();
         		int timeSince = (int) (now.getTime() - lastSolenoidEnable.getTime());
         		
@@ -244,22 +191,10 @@ public class Robot extends SampleRobot {
         		// Pressing 'LT' on gamePad decreases speedFactor by 0.1
         		// Pressing 'RT' on gamePad increases speedFactor by 0.1
         		
-        		/*if (gamepad.getFirstPressLT())
+        		if (gamepad.getFirstPressLT())
         			speedFactor -= 0.1;
         		if (gamepad.getFirstPressRT())
         			speedFactor += 0.1;
-        		*/
-        		
-        		// Testing for talon4
-        		if (gamepad.getButtonRT())
-        			talon4.set(0.5);
-        		else
-        			talon4.set(0);
-        		
-        		if (gamepad.getButtonLT())
-        			talon4.set(-0.5);
-        		else
-        			talon4.set(0);
         		
         		// Pressing
         		if (gamepad.getFirstPressLeftStickPress())
@@ -273,6 +208,17 @@ public class Robot extends SampleRobot {
         	}
         	
         	//-------------------------------------------------------------
+        	// Lifting arm
+        	//-------------------------------------------------------------
+        	
+        	{
+        		if (gamepad.getButtonRB())
+        			lift.set(0.4);
+        		if (gamepad.getButtonLB())
+        			lift.set(-0.4);
+        	}
+        	
+        	//-------------------------------------------------------------
         	// Driving tankDrive or mecanumDrive
         	//-------------------------------------------------------------
         	{
@@ -280,7 +226,7 @@ public class Robot extends SampleRobot {
             	// speedFactor to get leftSpeed and rightSpeed
 	        	double xMovement = gamepad.getLeftStickX() * speedFactor;
 	        	double yMovement = gamepad.getLeftStickY() * speedFactor;
-	        	double rotation = gamepad.getRightStickX() * rotationSpeed;
+	        	double rotation = gamepad.getRightStickX()+.2 * rotationSpeed;
 	        	
 	        	// Tank drive at modified speed
 	            // chassis.tankDrive(leftSpeed, rightSpeed);
@@ -289,18 +235,22 @@ public class Robot extends SampleRobot {
 	            // 3rd parameter specifies rate of rotation
 	        	chassis.mecanumDrive_Cartesian(xMovement, yMovement, rotation, 0);
         	}
-        	
-        	// Relay light switch
+
+        	//-------------------------------------------------------------
+        	// Light Switch
+        	//-------------------------------------------------------------
         	{
-        		if (gamepad.getFirstPressX()) {
+        		if (gamepad.getFirstPressB()) {
         			if (relayLight.get() == Value.kOn)
         				relayLight.set(Value.kOff);
         			else
         				relayLight.set(Value.kOn);
         		}
         	}
-        	
-        	// Compressor 
+
+        	//-------------------------------------------------------------
+        	// Compressor
+        	//-------------------------------------------------------------
         	{
         		if (gamepad.getFirstPressY()) {
         			if (compressor.enabled())
@@ -314,15 +264,87 @@ public class Robot extends SampleRobot {
         	// Smart Dashboard
         	//-------------------------------------------------------------
         	{
+        		SmartDashboard.putNumber("Right Stick X", gamepad.getRightStickX() + .2);
 	        	SmartDashboard.putNumber("Left Stick Y", gamepad.getLeftStickY());
-	        	SmartDashboard.putNumber("Right Stick Y", gamepad.getRightStickY());;
+	        	SmartDashboard.putNumber("Right Stick Y", gamepad.getRightStickY());
 	        	SmartDashboard.putNumber("Speed Factor", speedFactor);
 	        	SmartDashboard.putNumber("Rotation Factor", rotationSpeed);
-        		SmartDashboard.putBoolean("Compressor", compressor.enabled());
-	        	SmartDashboard.putBoolean("Solenoid Status", pneumatic0.get() && !pneumatic1.get());
+        		// SmartDashboard.putBoolean("Compressor", compressor.enabled());
+	        	// SmartDashboard.putBoolean("Solenoid Status", pneumatic0.get() && !pneumatic1.get());
 	        	SmartDashboard.putBoolean("Relay Light Status", relayLight.get() == Value.kOn);
 	        	SmartDashboard.putNumber("Encoder", encoderValue);
         	}
+
+        	//-------------------------------------------------------------
+        	// Image Processing
+        	//-------------------------------------------------------------
+        	//
+        	{
+				// Write new data to image variable.
+				NIVision.IMAQdxGrab(session, image, 1);
+				
+				if (cameraFilter) {
+	
+					// Draw a sphere (for testing)
+					// NIVision.imaqDrawShapeOnImage(image, image, new
+					// Rect(10,10,100,100), DrawMode.PAINT_VALUE,
+					// ShapeMode.SHAPE_OVAL, 5.0f);
+	
+					Range red = new Range(120, 250);
+					Range green = new Range(170, 255);
+					Range blue = new Range(235, 255);
+	
+					Image binary = NIVision.imaqCreateImage(ImageType.IMAGE_U8, 100);
+	
+					NIVision.imaqColorThreshold(binary, image, 255, ColorMode.RGB, red, green, blue);
+	
+					List<Target> targets = new ArrayList<Target>();
+	
+					int particles = NIVision.imaqCountParticles(binary, 0);
+	
+					for (int i = 0; i < particles; i++) {
+						double x = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_BOUNDING_RECT_LEFT);
+						double y = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_BOUNDING_RECT_TOP);
+						double area = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_AREA);
+						double width = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_BOUNDING_RECT_WIDTH);
+						double height = NIVision.imaqMeasureParticle(binary, i, 0, MeasurementType.MT_BOUNDING_RECT_HEIGHT);
+	
+						if (height > 3 && width > 50)
+							targets.add(new Target(x, y, width, height, area));
+					}
+	
+					List<Pair> pairs = new ArrayList<Pair>();
+	
+					for (Target target : targets) {
+						for (Target test : targets) {
+							if (target == test)
+								continue;
+	
+							if (test.isPair(target) && !pairs.contains(test)) {
+								pairs.add(new Pair(target, test));
+								break;
+							}
+						}
+					}
+	
+					SmartDashboard.putNumber("Targets", targets.size());
+					SmartDashboard.putNumber("Pairs", pairs.size());
+	
+					for (Pair pair : pairs) {
+						pair.a.fill(image);
+						pair.b.fill(image);
+						SmartDashboard.putNumber("Angle", pair.getAngle());
+						break;
+					}
+	
+					// Send image to SmartDashboard
+					camera.setImage(binary);
+				}
+				else {
+					camera.setImage(image);
+				}
+        	}
+			// End of Image Processing
             
             gamepad.updatePrevButtonStates();
             Timer.delay(0.01);
@@ -332,20 +354,27 @@ public class Robot extends SampleRobot {
     public void test() {
     }
     
-    public void strafe (double factor) {
+    public void lift (double speed, int time) {
+    	// speed is the rate it lifts (can be negative)
+    	// time is in milliseconds
+    	
+    	
+    }
+    
+    public void strafe (double speed) {
     	// Ex: chassis.stafe(0.4);
         // Mecanum drive at modified speed
     	// 1st parameter specifies xMovement
-    	chassis.mecanumDrive_Cartesian(factor, 0, 0, 0);
+    	chassis.mecanumDrive_Cartesian(speed, 0, 0, 0);
     }
     
     
-    public void rotate (double factor) {
+    public void rotate (double speed) {
     	// Ex: chassis.rotate (0.4);
     	
     	// Mecanum drive at modified speed
         // 3rd parameter specifies rate of rotation
-    	chassis.mecanumDrive_Cartesian(0, 0, factor, 0);
+    	chassis.mecanumDrive_Cartesian(0, 0, speed, 0);
     }
     
 }
