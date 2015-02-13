@@ -12,6 +12,7 @@ import com.ni.vision.NIVision.Image;
 import com.ni.vision.NIVision.ImageType;
 import com.ni.vision.NIVision.MeasurementType;
 import com.ni.vision.NIVision.Range;
+import com.ni.vision.VisionException;
 
 import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.Compressor;
@@ -59,12 +60,20 @@ public class Robot extends SampleRobot {
 	double wheelCircumference = 5.0; // circumference in meters of encoded wheels
 	int encoderValue = 0;
 	int robotState = 0;
+	boolean cameraPlugged = true;
 
     public Robot() {
-        image = NIVision.imaqCreateImage(NIVision.ImageType.IMAGE_RGB, 0);
+        try {
+            image = NIVision.imaqCreateImage(NIVision.ImageType.IMAGE_RGB, 0);
+
         session = NIVision.IMAQdxOpenCamera("cam1", IMAQdxCameraControlMode.CameraControlModeListener);
         NIVision.IMAQdxConfigureGrab(session);
     	NIVision.IMAQdxStartAcquisition(session);
+        } catch(VisionException vi) {
+        	System.out.println("camera not plugged in");
+        	cameraPlugged = false;
+        }
+        
         
         // Setup chassis
         chassis.setInvertedMotor(MotorType.kFrontRight, true);
@@ -109,6 +118,8 @@ public class Robot extends SampleRobot {
         chassis.setSafetyEnabled(true);
         encoder.reset();
         compressor.setClosedLoopControl(false);
+        pneumatic0.set(false);
+        pneumatic1.set(true);
         
         while (isOperatorControl() && isEnabled()) {
         	//-------------------------------------------------------------
@@ -166,19 +177,16 @@ public class Robot extends SampleRobot {
         	//-------------------------------------------------------------
         	// Pneumatic Piston Control Using Solenoid
         	//-------------------------------------------------------------
-        	// Using a 2-way solenoid, in order for `atic to extend, pneumatic0 
+        	// Using a 2-way solenoid, in order for atic to extend, pneumatic0 
         	// must be open (set to true) and pneumatic1 must be closed (set to false)
         	// Vice-versa to retract pneumatic piston.
-        	if (false) {
-    			Date now = new Date();
-        		int timeSince = (int) (now.getTime() - lastSolenoidEnable.getTime());
+        	if (true) {
         		
-        		if (gamepad.getButtonRB() == true && timeSince > 1000) {
+        		if (gamepad.getFirstPressY() == true && pneumatic1.get()) {
         			pneumatic0.set(true);
-        			pneumatic1.set(false);
-        			lastSolenoidEnable = now;
+        			pneumatic1.set(false);        			
         		}
-        		else if (timeSince > 1000) {
+        		else if (gamepad.getFirstPressY() == true && pneumatic0.get()) {
         			pneumatic0.set(false);
         			pneumatic1.set(true);
         		}
@@ -213,9 +221,11 @@ public class Robot extends SampleRobot {
         	
         	{
         		if (gamepad.getButtonRB())
-        			lift.set(0.4);
-        		if (gamepad.getButtonLB())
-        			lift.set(-0.4);
+        			lift.set(0.6);
+        		else if (gamepad.getButtonLB())
+        			lift.set(-0.6);
+        		else 
+        			lift.set(0);
         	}
         	
         	//-------------------------------------------------------------
@@ -226,7 +236,7 @@ public class Robot extends SampleRobot {
             	// speedFactor to get leftSpeed and rightSpeed
 	        	double xMovement = gamepad.getLeftStickX() * speedFactor;
 	        	double yMovement = gamepad.getLeftStickY() * speedFactor;
-	        	double rotation = gamepad.getRightStickX()+.2 * rotationSpeed;
+	        	double rotation = gamepad.getRightStickX() * rotationSpeed;
 	        	
 	        	// Tank drive at modified speed
 	            // chassis.tankDrive(leftSpeed, rightSpeed);
@@ -264,7 +274,7 @@ public class Robot extends SampleRobot {
         	// Smart Dashboard
         	//-------------------------------------------------------------
         	{
-        		SmartDashboard.putNumber("Right Stick X", gamepad.getRightStickX() + .2);
+        		SmartDashboard.putNumber("Right Stick X", gamepad.getRightStickX());
 	        	SmartDashboard.putNumber("Left Stick Y", gamepad.getLeftStickY());
 	        	SmartDashboard.putNumber("Right Stick Y", gamepad.getRightStickY());
 	        	SmartDashboard.putNumber("Speed Factor", speedFactor);
@@ -281,8 +291,9 @@ public class Robot extends SampleRobot {
         	//
         	{
 				// Write new data to image variable.
+        		if (cameraPlugged) {
 				NIVision.IMAQdxGrab(session, image, 1);
-				
+        		}
 				if (cameraFilter) {
 	
 					// Draw a sphere (for testing)
@@ -341,13 +352,14 @@ public class Robot extends SampleRobot {
 					camera.setImage(binary);
 				}
 				else {
+					if (cameraPlugged) 
 					camera.setImage(image);
 				}
         	}
 			// End of Image Processing
             
             gamepad.updatePrevButtonStates();
-            Timer.delay(0.01);
+            Timer.delay(0.1);
         }
     }
     
